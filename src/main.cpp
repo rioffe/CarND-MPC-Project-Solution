@@ -90,6 +90,7 @@ int main() {
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
+          double psi_unity = j[1]["psi_unity"];
           double v = j[1]["speed"];
 
           /*
@@ -100,8 +101,8 @@ int main() {
           */
           vector<double> ptsx_tr, ptsy_tr;
           for(size_t i = 0; i < ptsx_.size(); i++) {
-            double x =  (ptsx_[i] - px)*cos(psi) - (ptsy_[i] - py)*sin(psi);
-            double y = - (ptsx_[i] - px)*sin(psi) - (ptsy_[i] - py)*cos(psi);
+            double y = -(ptsx_[i] - px)*cos(psi_unity) + (ptsy_[i] - py)*sin(psi_unity);
+            double x =  (ptsx_[i] - px)*sin(psi_unity) + (ptsy_[i] - py)*cos(psi_unity);
             ptsx_tr.push_back(x);
             ptsy_tr.push_back(y);
           }
@@ -119,10 +120,10 @@ int main() {
           double cte = polyeval(coeffs, x) - y;
           // Due to the sign starting at 0, the orientation error is -f'(x).
           // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          double epsi = psi - atan(coeffs[1]);
+          double epsi = psi_unity - atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
-          state << x, y, psi, v, cte, epsi;
+          state << x, y, psi_unity, v, cte, epsi;
 
           std::vector<double> x_vals = {state[0]};
           std::vector<double> y_vals = {state[1]};
@@ -133,23 +134,30 @@ int main() {
           std::vector<double> delta_vals = {};
           std::vector<double> a_vals = {};
           
-          size_t iters = 6;
-          for (size_t i = 0; i < iters; i++) {
+          //#size_t iters = 10;
+          //#for (size_t i = 0; i < iters; i++) {
             //std::cout << "Iteration " << i << std::endl;
 
             auto vars = mpc.Solve(state, coeffs);
+            
+            for(size_t i = 0; i < 6; i++) {
+              double x = vars[2*i];
+              double y = vars[2*i+1];
+              double y1 = x*cos(psi_unity) - y*sin(psi_unity);
+              double x1 = x*sin(psi_unity) + y*cos(psi_unity);
+              x_vals.push_back(x1);
+              y_vals.push_back(y1);
+            }
 
-            x_vals.push_back(vars[0]);
-            y_vals.push_back(vars[1]);
-            psi_vals.push_back(vars[2]);
-            v_vals.push_back(vars[3]);
-            cte_vals.push_back(vars[4]);
-            epsi_vals.push_back(vars[5]);
+            psi_vals.push_back(vars[10+2]);
+            v_vals.push_back(vars[10+3]);
+            cte_vals.push_back(vars[10+4]);
+            epsi_vals.push_back(vars[10+5]);
 
-            delta_vals.push_back(vars[6]);
-            a_vals.push_back(vars[7]);
+            delta_vals.push_back(vars[10+6]);
+            a_vals.push_back(vars[10+7]);
 
-            state << vars[0], vars[1], vars[2], vars[3], vars[4], vars[5];
+            state << vars[0], vars[1], vars[10+2], vars[10+3], vars[10+4], vars[10+5];
             //std::cout << "x = " << vars[0] << std::endl;
             //std::cout << "y = " << vars[1] << std::endl;
             //std::cout << "psi = " << vars[2] << std::endl;
@@ -159,10 +167,11 @@ int main() {
             //std::cout << "delta = " << vars[6] << std::endl;
             //std::cout << "a = " << vars[7] << std::endl;
             //std::cout << std::endl;
-          }
+          //}
 
           const double Lf = 2.67;
-          double steer_value = delta_vals[0]/(Lf*deg2rad(25));
+          const double dt = 0.05;
+          double steer_value = delta_vals[0]*dt/(Lf*deg2rad(25));
           double throttle_value = a_vals[0];
 
           json msgJson;
