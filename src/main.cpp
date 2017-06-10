@@ -1,5 +1,7 @@
 #include <math.h>
 #include <uWS/uWS.h>
+#include <ctime>
+#include <ratio>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -100,10 +102,13 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
+#define HALF_PI 1.5707963
           vector<double> ptsx_tr, ptsy_tr;
           for(size_t i = 0; i < ptsx_.size(); i++) {
-            double y = -(ptsx_[i] - px)*cos(psi_unity) + (ptsy_[i] - py)*sin(psi_unity);
-            double x =  (ptsx_[i] - px)*sin(psi_unity) + (ptsy_[i] - py)*cos(psi_unity);
+            //double y = -(ptsx_[i] - px)*cos(psi_unity) + (ptsy_[i] - py)*sin(psi_unity);
+            ////double x =  (ptsx_[i] - px)*sin(psi_unity) + (ptsy_[i] - py)*cos(psi_unity);
+            double x =  (ptsx_[i] - px)*cos(- psi) - (ptsy_[i] - py)*sin(- psi);
+            double y =  (ptsx_[i] - px)*sin(- psi) + (ptsy_[i] - py)*cos(- psi);
             ptsx_tr.push_back(x);
             ptsy_tr.push_back(y);
           }
@@ -122,11 +127,11 @@ int main() {
           std::cout << "cte is " << cte << std::endl;
           // Due to the sign starting at 0, the orientation error is -f'(x).
           // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          double epsi = - atan(coeffs[1] + 2*coeffs[2]*px);
-          std::cout << "epse is " << epsi << std::endl;
+          double epsi = psi - 3.14159265 - atan(coeffs[1] + 2*coeffs[2]*px);
+          std::cout << "epsi is " << epsi << std::endl;
 
           Eigen::VectorXd state(6);
-          state << px, py, psi_unity, v, cte, epsi;
+          state << px, py, psi, v, cte, epsi;
 
           std::vector<double> x_vals = {state[0]};
           std::vector<double> y_vals = {state[1]};
@@ -145,39 +150,48 @@ int main() {
             
             x_vals[0] = 0;
             y_vals[0] = 0;
-            for(size_t i = 0; i < 6; i++) {
+            const size_t N = 24;
+            for(size_t i = 0; i < N; i++) {
               double x = vars[2*i];
               double y = vars[2*i+1];
-              double y1 = -(x - px)*cos(psi_unity) + (y - py)*sin(psi_unity);
-              double x1 = (x - px)*sin(psi_unity) + (y - py)*cos(psi_unity);
+              double x1 = (x - px)*cos(-psi) - (y - py)*sin(-psi);
+              double y1 = (x - px)*sin(-psi) + (y - py)*cos(-psi);
               x_vals.push_back(x1);
               y_vals.push_back(y1);
             }
 
-            psi_vals.push_back(vars[10+2]);
-            v_vals.push_back(vars[10+3]);
-            cte_vals.push_back(vars[10+4]);
-            epsi_vals.push_back(vars[10+5]);
+            psi_vals.push_back(vars[2*N]);
+            v_vals.push_back(vars[2*N+1]);
+            cte_vals.push_back(vars[2*N+2]);
+            epsi_vals.push_back(vars[2*N+3]);
 
-            delta_vals.push_back(vars[10+6]);
-            a_vals.push_back(vars[10+7]);
+            delta_vals.push_back(vars[2*N+4]);
+            a_vals.push_back(vars[2*N+5]);
 
-            state << vars[0], vars[1], vars[10+2], vars[10+3], vars[10+4], vars[10+5];
+            state << vars[0], vars[1], vars[2*N], vars[2*N+1], vars[2*N+2], vars[2*N+3];
             std::cout << "x = " << vars[0] << std::endl;
             std::cout << "y = " << vars[1] << std::endl;
-            std::cout << "psi = " << vars[10+2] << std::endl;
-            std::cout << "v = " << vars[10+3] << std::endl;
-            std::cout << "cte = " << vars[10+4] << std::endl;
-            std::cout << "epsi = " << vars[10+5] << std::endl;
-            std::cout << "delta = " << vars[10+6] << std::endl;
-            std::cout << "a = " << vars[10+7] << std::endl;
+            std::cout << "psi = " << vars[2*N] << std::endl;
+            std::cout << "v = " << vars[2*N+1] << std::endl;
+            std::cout << "cte = " << vars[2*N+2] << std::endl;
+            std::cout << "epsi = " << vars[2*N+3] << std::endl;
+            std::cout << "delta = " << vars[2*N+4] << std::endl;
+            std::cout << "a = " << vars[2*N+5] << std::endl;
             std::cout << std::endl;
           //}
+          static chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+          chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
+          chrono::duration<double> time_span = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
+
+          double dt = time_span.count();
+          std::cout << "dt = " << dt << " seconds.";
+          t1 = t2;
           const double Lf = 2.67;
-          const double dt = 0.01;
-          //double steer_value = steering_angle + (v*dt*delta_vals[0]/Lf)/deg2rad(25);
-          double steer_value =  steering_angle + (v_vals[1]*dt*delta_vals[0]/Lf)/deg2rad(25);
+          dt = 0.05;
+          //dt = dt / 5;
+          double steer_value = - (v*dt*delta_vals[0]/Lf)/deg2rad(25);
+          std::cout << "Steering Angle is " << steer_value << std::endl;
           double throttle_value = a_vals[0];
 
           json msgJson;

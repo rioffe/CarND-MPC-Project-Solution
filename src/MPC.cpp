@@ -28,7 +28,7 @@ const double Lf = 2.67;
 // The reference velocity is set to 40 mph.
 double ref_cte = 0;
 double ref_epsi = 0;
-double ref_v = 20;
+double ref_v = 10;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -135,7 +135,7 @@ class FG_eval {
       fg[2 + cte_start + i] =
           cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
       fg[2 + epsi_start + i] =
-          epsi1 - ((psi0 - psides0) + v0 * delta0 / Lf * dt);
+          epsi1 - ((psi0 - 3.14159265 - psides0) + v0 * delta0 / Lf * dt);
     }
   }
 };
@@ -261,13 +261,31 @@ vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
 
   // Cost
   auto cost = solution.obj_value;
-  //std::cout << "Cost " << cost << std::endl;
+  std::cout << "Cost " << cost << std::endl;
   return {solution.x[x_start + 1],   solution.x[y_start + 1],
           solution.x[x_start + 2],   solution.x[y_start + 2],
           solution.x[x_start + 3],   solution.x[y_start + 3],
           solution.x[x_start + 4],   solution.x[y_start + 4],
           solution.x[x_start + 5],   solution.x[y_start + 5],
           solution.x[x_start + 6],   solution.x[y_start + 6],
+          solution.x[x_start + 7],   solution.x[y_start + 7],
+          solution.x[x_start + 8],   solution.x[y_start + 8],
+          solution.x[x_start + 9],   solution.x[y_start + 9],
+          solution.x[x_start + 10],   solution.x[y_start + 10],
+          solution.x[x_start + 11],   solution.x[y_start + 11],
+          solution.x[x_start + 12],   solution.x[y_start + 12],
+          solution.x[x_start + 13],   solution.x[y_start + 13],
+          solution.x[x_start + 14],   solution.x[y_start + 14],
+          solution.x[x_start + 15],   solution.x[y_start + 15],
+          solution.x[x_start + 16],   solution.x[y_start + 16],
+          solution.x[x_start + 17],   solution.x[y_start + 17],
+          solution.x[x_start + 18],   solution.x[y_start + 18],
+          solution.x[x_start + 19],   solution.x[y_start + 19],
+          solution.x[x_start + 20],   solution.x[y_start + 20],
+          solution.x[x_start + 21],   solution.x[y_start + 21],
+          solution.x[x_start + 22],   solution.x[y_start + 22],
+          solution.x[x_start + 23],   solution.x[y_start + 23],
+          solution.x[x_start + 24],   solution.x[y_start + 24],
           solution.x[psi_start + 1], solution.x[v_start + 1],
           solution.x[cte_start + 1], solution.x[epsi_start + 1],
           solution.x[delta_start],   solution.x[a_start]};
