@@ -92,6 +92,7 @@ int main() {
           double psi = j[1]["psi"];
           double psi_unity = j[1]["psi_unity"];
           double v = j[1]["speed"];
+          double steering_angle = j[1]["steering_angle"];
 
           /*
           * Calculate steering angle and throttle using MPC.
@@ -108,8 +109,8 @@ int main() {
           }
           Eigen::VectorXd ptsx(ptsx_.size());
           Eigen::VectorXd ptsy(ptsy_.size());
-          ptsx << ptsx_tr[0], ptsx_tr[1], ptsx_tr[2], ptsx_tr[3], ptsx_tr[4], ptsx_tr[5];
-          ptsy << ptsy_tr[0], ptsy_tr[1], ptsy_tr[2], ptsy_tr[3], ptsy_tr[4], ptsy_tr[5];
+          ptsx << ptsx_[0], ptsx_[1], ptsx_[2], ptsx_[3], ptsx_[4], ptsx_[5];
+          ptsy << ptsy_[0], ptsy_[1], ptsy_[2], ptsy_[3], ptsy_[4], ptsy_[5];
           auto coeffs = polyfit(ptsx, ptsy, 2);
 
           // NOTE: free feel to play around with these
@@ -117,13 +118,15 @@ int main() {
           double y = 0.0;
           // The cross track error is calculated by evaluating at polynomial at x, f(x)
           // and subtracting y.
-          double cte = polyeval(coeffs, x) - y;
+          double cte = polyeval(coeffs, px) - py;
+          std::cout << "cte is " << cte << std::endl;
           // Due to the sign starting at 0, the orientation error is -f'(x).
           // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          double epsi = psi_unity - atan(coeffs[1]);
+          double epsi = - atan(coeffs[1] + 2*coeffs[2]*px);
+          std::cout << "epse is " << epsi << std::endl;
 
           Eigen::VectorXd state(6);
-          state << x, y, psi_unity, v, cte, epsi;
+          state << px, py, psi_unity, v, cte, epsi;
 
           std::vector<double> x_vals = {state[0]};
           std::vector<double> y_vals = {state[1]};
@@ -140,11 +143,13 @@ int main() {
 
             auto vars = mpc.Solve(state, coeffs);
             
+            x_vals[0] = 0;
+            y_vals[0] = 0;
             for(size_t i = 0; i < 6; i++) {
               double x = vars[2*i];
               double y = vars[2*i+1];
-              double y1 = x*cos(psi_unity) - y*sin(psi_unity);
-              double x1 = x*sin(psi_unity) + y*cos(psi_unity);
+              double y1 = -(x - px)*cos(psi_unity) + (y - py)*sin(psi_unity);
+              double x1 = (x - px)*sin(psi_unity) + (y - py)*cos(psi_unity);
               x_vals.push_back(x1);
               y_vals.push_back(y1);
             }
@@ -158,20 +163,21 @@ int main() {
             a_vals.push_back(vars[10+7]);
 
             state << vars[0], vars[1], vars[10+2], vars[10+3], vars[10+4], vars[10+5];
-            //std::cout << "x = " << vars[0] << std::endl;
-            //std::cout << "y = " << vars[1] << std::endl;
-            //std::cout << "psi = " << vars[2] << std::endl;
-            //std::cout << "v = " << vars[3] << std::endl;
-            //std::cout << "cte = " << vars[4] << std::endl;
-            //std::cout << "epsi = " << vars[5] << std::endl;
-            //std::cout << "delta = " << vars[6] << std::endl;
-            //std::cout << "a = " << vars[7] << std::endl;
-            //std::cout << std::endl;
+            std::cout << "x = " << vars[0] << std::endl;
+            std::cout << "y = " << vars[1] << std::endl;
+            std::cout << "psi = " << vars[10+2] << std::endl;
+            std::cout << "v = " << vars[10+3] << std::endl;
+            std::cout << "cte = " << vars[10+4] << std::endl;
+            std::cout << "epsi = " << vars[10+5] << std::endl;
+            std::cout << "delta = " << vars[10+6] << std::endl;
+            std::cout << "a = " << vars[10+7] << std::endl;
+            std::cout << std::endl;
           //}
 
           const double Lf = 2.67;
-          const double dt = 0.05;
-          double steer_value = delta_vals[0]*dt/(Lf*deg2rad(25));
+          const double dt = 0.01;
+          //double steer_value = steering_angle + (v*dt*delta_vals[0]/Lf)/deg2rad(25);
+          double steer_value =  steering_angle + (v_vals[1]*dt*delta_vals[0]/Lf)/deg2rad(25);
           double throttle_value = a_vals[0];
 
           json msgJson;
