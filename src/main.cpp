@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
             auto vars = mpc.Solve(state, coeffs);
             
             const size_t N = 24;
-            for(size_t i = 0; i < N; i++) {
+            for(size_t i = 2; i < N; i+=3) {
               double x = vars[2*i];
               double y = vars[2*i+1];
               x_vals.push_back(x);
