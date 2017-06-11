@@ -67,13 +67,19 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   return result;
 }
 
-int main() {
+double ref_v;
+double dt;
+
+int main(int argc, char** argv) {
+  double dt_run = atof(argv[3]);
+  ref_v = atof(argv[2]);
+  dt = atof(argv[1]);
   uWS::Hub h;
 
   // MPC is initialized here!
   MPC mpc;
 
-  h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&mpc, &dt_run](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -102,11 +108,8 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-#define HALF_PI 1.5707963
           vector<double> ptsx_tr, ptsy_tr;
           for(size_t i = 0; i < ptsx_.size(); i++) {
-            //double y = -(ptsx_[i] - px)*cos(psi_unity) + (ptsy_[i] - py)*sin(psi_unity);
-            ////double x =  (ptsx_[i] - px)*sin(psi_unity) + (ptsy_[i] - py)*cos(psi_unity);
             double x =  (ptsx_[i] - px)*cos(- psi) - (ptsy_[i] - py)*sin(- psi);
             double y =  (ptsx_[i] - px)*sin(- psi) + (ptsy_[i] - py)*cos(- psi);
             ptsx_tr.push_back(x);
@@ -114,8 +117,8 @@ int main() {
           }
           Eigen::VectorXd ptsx(ptsx_.size());
           Eigen::VectorXd ptsy(ptsy_.size());
-          ptsx << ptsx_[0], ptsx_[1], ptsx_[2], ptsx_[3], ptsx_[4], ptsx_[5];
-          ptsy << ptsy_[0], ptsy_[1], ptsy_[2], ptsy_[3], ptsy_[4], ptsy_[5];
+          ptsx << ptsx_tr[0], ptsx_tr[1], ptsx_tr[2], ptsx_tr[3], ptsx_tr[4], ptsx_tr[5];
+          ptsy << ptsy_tr[0], ptsy_tr[1], ptsy_tr[2], ptsy_tr[3], ptsy_tr[4], ptsy_tr[5];
           auto coeffs = polyfit(ptsx, ptsy, 2);
 
           // NOTE: free feel to play around with these
@@ -123,15 +126,15 @@ int main() {
           double y = 0.0;
           // The cross track error is calculated by evaluating at polynomial at x, f(x)
           // and subtracting y.
-          double cte = polyeval(coeffs, px) - py;
+          double cte = polyeval(coeffs, x) - y;
           std::cout << "cte is " << cte << std::endl;
           // Due to the sign starting at 0, the orientation error is -f'(x).
           // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-          double epsi = psi - 3.14159265 - atan(coeffs[1] + 2*coeffs[2]*px);
+          double epsi = -atan(coeffs[1]);
           std::cout << "epsi is " << epsi << std::endl;
 
           Eigen::VectorXd state(6);
-          state << px, py, psi, v, cte, epsi;
+          state << x, y, 0, v, cte, epsi;
 
           std::vector<double> x_vals = {state[0]};
           std::vector<double> y_vals = {state[1]};
@@ -148,16 +151,12 @@ int main() {
 
             auto vars = mpc.Solve(state, coeffs);
             
-            x_vals[0] = 0;
-            y_vals[0] = 0;
             const size_t N = 24;
             for(size_t i = 0; i < N; i++) {
               double x = vars[2*i];
               double y = vars[2*i+1];
-              double x1 = (x - px)*cos(-psi) - (y - py)*sin(-psi);
-              double y1 = (x - px)*sin(-psi) + (y - py)*cos(-psi);
-              x_vals.push_back(x1);
-              y_vals.push_back(y1);
+              x_vals.push_back(x);
+              y_vals.push_back(y);
             }
 
             psi_vals.push_back(vars[2*N]);
@@ -188,9 +187,7 @@ int main() {
           std::cout << "dt = " << dt << " seconds.";
           t1 = t2;
           const double Lf = 2.67;
-          dt = 0.05;
-          //dt = dt / 5;
-          double steer_value = - (v*dt*delta_vals[0]/Lf)/deg2rad(25);
+          double steer_value = - (v*dt_run*delta_vals[0]/Lf)/deg2rad(25);
           std::cout << "Steering Angle is " << steer_value << std::endl;
           double throttle_value = a_vals[0];
 
