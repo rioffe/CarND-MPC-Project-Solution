@@ -1,7 +1,55 @@
 # CarND-Controls-MPC Project Solution
 Self-Driving Car Engineer Nanodegree Program
 
+My controller accepts three parameters: the first one is dt - simulation time step, the second one is ref_v - speed in miles per hour, and the last one is dt_run - time step used to calculate steering of a car during runtime. I use N=25 for the number of simulation time steps. This translates into simulated time of N * dt = 1.25 seconds in the first case below, 1.075 seconds in the second case, and 1.05 seconds in the last case, when I was running the car at 80 mph. Note that for the first and the second cases the simulation time step is equal to the runtime time step, which is what you would typically expect. At higher speeds, I found that the runtime step could be lower than the simulation time step, which means that the car tries to understeer at high speeds.    
 
+I am fitting the polynomial of the second degree to my waypoints. I find it sufficient to describe the curves we are encountering. Waypoints are processed in the following way: they are rotated relative to location of the car in the direction opposite the vehicle orientation psi prior to fitting the polynomial. This transformation avoids the problems of fitting the polynomial of the second degree to the untransformed points. Simulation is done from the point of view of the vehicle, so x, y and psi components of the initial state are all 0, cross-track error cte is effectively C0 of the polynomial, vehicle speed v is untransformed and orientation error epsi is -arctan(C1), where C1 is the second coefficient of the polynomial. I am using the standard state for the MPC, which includes coordinates of the car x and y (in the coordinate system of the car itself), orientation psi, speed v, cross-track error cte and orientation error epsi. 
+
+I use the standard update equations for the state:
+```
+x = x0 + v0 * cos(psi0) * dt
+y = y0 + v0 * sin(psi) * dt
+psi = psi0 + v0 * delta0 / Lf * dt
+v = v0 + a0 * dt
+cte = (f0 - y0) + v0 * sin(epsi0) * dt
+epsi = psi0 - psides0 + v0 * delta0 / Lf * dt
+```
+Where f0 is a polynomial of the second degree:
+```
+f0 = C0 + C1 * x0 + C2 * x0^2
+```
+and psides0 is the arctangent of the derivative of f0:
+```
+psides0 = arctan(C1 + 2 * x0)
+```
+
+I calculate steering the following way (note that the use of parameter dt_run instead of dt allows me to understeer at higher speeds, which leads to a more stable performance):
+```
+steer_value = - (v1*dt_run*delta2/Lf)/deg2rad(25);
+```
+Finally, throttle is just equal to acceleration a2.
+
+My controller's solver returns all 24 x and y coordinates of the predicted trajectory, psi1, v1, cte1, epsi1 and delta2 and a2. Note that I handle a 100 millisecond latency by using delta2 and a2, instead of delta0 and a0 - meaning that I am looking two simulation steps ahead for the values of delta and a. Since dt is the first case below is 0.05, this translates into exactly 100 milliseconds delay in applying actuators. In the second case below delay is about 86 milliseconds due to lowering of dt and in the third case it is 84 milliseconds. 
+
+Here is the simulated car driving at a speed of 60 mph controlled by MPC controller.
+I used the following command line: 
+```
+./mpc 0.05 60 0.05
+```
+[![Car driving at 60 mph on the first track controlled by MPC controller](https://i.ytimg.com/vi/S2a39caBX70/2.jpg)](https://youtu.be/S2a39caBX70)
+
+Here is the simulated car driving at top speed of 80 mph controlled by MPC controller.
+I used the following command line: 
+```
+./mpc 0.043 70 0.043
+```
+[![Car driving at 70 mph on the first track controlled by MPC controller](https://i.ytimg.com/vi/s-5VzlqTZec/3.jpg?)](https://youtu.be/s-5VzlqTZec)
+
+Here is the simulated car driving at top speed of 80 mph controlled by MPC controller.
+I used the following command line: 
+```
+./mpc 0.042 80 0.037
+```
 [![Car driving at 80 mph on the first track controlled by MPC controller](https://i.ytimg.com/vi/QS7i90OQsjo/2.jpg)](https://youtu.be/QS7i90OQsjo)
 ---
 
@@ -50,68 +98,6 @@ Self-Driving Car Engineer Nanodegree Program
 1. Clone this repo.
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
-4. Run it: `./mpc`.
+4. Run it: `./mpc 0.05 60 0.05`.
 
-## Tips
-
-1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
-is the vehicle starting offset of a straight line (reference). If the MPC implementation is correct, after some number of timesteps
-(not too many) it should find and track the reference line.
-2. The `lake_track_waypoints.csv` file has the waypoints of the lake track. You could use this to fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
-3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
-
-## Hints!
-
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to we ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
+Note, that the first parameter to the controller is dt - the time step of the simulation, the second is speed in miles per hour and the third is dt_run - the time step used during steering calculation, which for low speeds you can set to be equal to dt, but at higher speeds it is recommended to set it lower to improve stability of the car.
