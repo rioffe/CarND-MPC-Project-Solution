@@ -1,6 +1,8 @@
-# CarND-Controls-MPC
+# CarND-Controls-MPC Project Solution
 Self-Driving Car Engineer Nanodegree Program
 
+
+[![Car driving at 80 mph on the first track controlled by MPC controller](https://i.ytimg.com/vi/QS7i90OQsjo/2.jpg)](https://youtu.be/QS7i90OQsjo)
 ---
 
 ## Dependencies
